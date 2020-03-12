@@ -123,6 +123,8 @@ int main(int argc, char *argv[])
     if( argc >= 2 )
     {
         omp_set_num_threads( atoi( argv[ 1 ] ) );
+        int threads_num = omp_get_max_threads();
+        printf("The threads number is: %d \n", threads_num);
     }
     
     float elapsed = 0;
