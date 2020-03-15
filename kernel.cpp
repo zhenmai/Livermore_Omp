@@ -6,11 +6,11 @@
 #include <omp.h>
 
 template <typename T> 
-T CalculateSum(const std::vector<T> input)
+float CalculateSum(const std::vector<T> input)
 {
-    auto sum = 0;
+    float sum = 0;
     // sum up all the elements in the vector
-    for (unsigned int i = 0; i < input.size() ; i++)
+    for (unsigned int i = 0; i < input.size(); i++)
     {
         sum += input[i];
     }
@@ -27,7 +27,7 @@ T CalculateSum(const std::vector<T> input)
  */
 std::vector<float> Kernel1()
 {
-    int i = 0, n = 1000;
+    int i = 0, n = 10000;
     float q = 0.5, r = 0.2, t = 0.1;
     std::vector<float> x(n, 0);
     std::vector<float> y(n, 1.3);
@@ -39,7 +39,7 @@ std::vector<float> Kernel1()
             x[k] = q + y[k] * (r * z[k+10] + t * z[k+11]);
         }
         ++i;
-    } while( i < 500);
+    } while( i < 50);
     return x;
 }
 
