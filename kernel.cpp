@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cstring>
+#include <string>
 #include <cmath>
 #include <vector>
 #include <chrono>
@@ -6,10 +8,11 @@
 #include <omp.h>
 
 template <typename T> 
-float CalculateSum(const std::vector<T> input)
+double CalculateSum(const std::vector<T> input)
 {
-    float sum = 0;
+    double sum = 0;
     // sum up all the elements in the vector
+    #pragma omp parallel for reduction(+:sum)
     for (unsigned int i = 0; i < input.size(); i++)
     {
         sum += input[i];
@@ -27,7 +30,7 @@ float CalculateSum(const std::vector<T> input)
  */
 std::vector<float> Kernel1()
 {
-    int i = 0, n = 10000;
+    int i = 0, n = 1000000;
     float q = 0.5, r = 0.2, t = 0.1;
     std::vector<float> x(n, 0);
     std::vector<float> y(n, 1.3);
@@ -39,7 +42,7 @@ std::vector<float> Kernel1()
             x[k] = q + y[k] * (r * z[k+10] + t * z[k+11]);
         }
         ++i;
-    } while( i < 50);
+    } while( i < 100);
     return x;
 }
 
@@ -61,49 +64,83 @@ std::vector<float> Kernel1()
  *        IF( II.GT.1) GO TO 222
  *200 CONTINUE
  */
-// float* Kernel2()
-// {
-//     long k, ipntp, ipnt, i, ii, n = 97, j = 0;
-//     static float x[1001] = {0}, v[1001] = {0};
-//     do {
-//         ii = n;
-//         ipntp = 0;
-//         do {
-//             ipnt = ipntp;
-//             ipntp += ii;
-//             ii /= 2;
-//             i = ipntp ;
-//             /* #pragma nohazard */
-//             for ( k=ipnt+1 ; k<ipntp ; k=k+2 ) {
-//                 i++;
-//                 x[i] = x[k] - v[k  ]*x[k-1] - v[k+1]*x[k+1];
-//             }
-//         } while ( ii>0 );
-//         j++;
-//     } while( j < 2680 );
-//     return x;
-// }
+std::vector<float> Kernel2()
+{
+    int ipntp, ipnt, i, ii, n = 1000, j = 0;
+    std::vector<float> x(n, 0);
+    std::vector<float> v(n, 0);
+    do {
+        ii = n;
+        ipntp = 0;
+        do {
+            ipnt = ipntp;
+            ipntp += ii;
+            ii /= 2;
+            i = ipntp ;
+            /* #pragma nohazard */
+            #pragma omp parallel for
+            for (int k = ipnt+1; k< ipntp ; k = k+2 ) 
+            {
+                i++;
+                x[i] = x[k] - v[k] * x[k-1] - v[k+1] * x[k+1];
+            }
+        } while ( ii>0 );
+        j++;
+    } while( j < 1000 );
+    return x;
+}
 
 
 int main(int argc, char *argv[])
 {
-    if( argc >= 2 )
+    if( argc >= 3 )
     {
-        omp_set_num_threads( atoi( argv[ 1 ] ) );
+        // Choose which kernel loop that we want to run
+        const int kernel_test = atoi( argv[ 1 ] );
+        std::cout << "The kernel we are testing is: " << kernel_test << std::endl;
+        // Set the number of cores that we want to use
+        omp_set_num_threads( atoi( argv[ 2 ] ) );
         int threads_num = omp_get_max_threads();
         printf("The used threads number is: %d \n", threads_num);
+
+        // Create a variable sum to calculate the sum of each elements in the array 
+        // In order to make sure the result is correct
+        double sum = 0;
+
+        // Start to recored the time
+        auto const start_time = std::chrono::steady_clock::now();
+
+        switch(kernel_test)
+        {
+        case 1:
+        {   
+            auto k1 = Kernel1();
+            sum = CalculateSum(k1);
+            break;
+        }
+        case 2:
+        {
+            // Calculate the time used for kernel 2
+            auto k2 = Kernel1();
+            sum = CalculateSum(k2);
+            break;
+        } 
+        default:
+            std::cout << "Invalid Input!" << std::endl;
+        }      
+        
+        auto const end_time = std::chrono::steady_clock::now();
+        auto const avg_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        std::cout << "Total execution time  = " << avg_time << " us" << std::endl;
+        std::cout << "Total sum for the kernel array is: " << sum << std::endl;
+        
     }
-    auto const start_time = std::chrono::steady_clock::now();
-    
-    // Calculate the time used for kernel 1
-    auto k1 = Kernel1();
-    
-    auto const end_time = std::chrono::steady_clock::now();
-    auto const avg_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-    std::cout << "Total execution time  = " << avg_time << " us" << std::endl;
-    
-    auto sum = CalculateSum(k1);
-    printf("Total sum for kernel 1: array x: %f \n", sum);
+    else
+    {
+        std::cout << "Invalid Input: " << std::endl;
+        std::cout << "Please input the kernel loops wanted to test in argc[1]" << std::endl;
+        std::cout << "Please input the number of threads wanted to use in argc[2]" << std::endl;
+    }
     
     return 0;
 }
