@@ -10,7 +10,7 @@ T CalculateSum(const std::vector<T> input)
 {
     auto sum = 0;
     // sum up all the elements in the vector
-    for (auto i = 0; i < input.size() ; i++)
+    for (unsigned int i = 0; i < input.size() ; i++)
     {
         sum += input[i];
     }
@@ -107,12 +107,6 @@ int main(int argc, char *argv[])
     
     return 0;
 }
-
-
-
-
-
-
 
 
 
