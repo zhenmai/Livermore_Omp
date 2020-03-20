@@ -5,6 +5,7 @@
 #include <vector>
 #include <chrono>
 #include <ctime>
+#include <numeric>  // std::accumulate()
 #include <omp.h>
 
 // const iteration time for every loop
@@ -45,10 +46,14 @@ void InitializeLoop(std::vector<T>& input, const float mul)
 std::vector<float> Kernel1()
 {
     int i = 0, n = 1000000;
-    float q = 0.5, r = 0.2, t = 0.1;
+    float q = 0.05, r = 0.02, t = 0.01;
     std::vector<float> x(n, 0);
-    std::vector<float> y(n, 1.3);
-    std::vector<float> z(n + 11, 3.5);
+    std::vector<float> y(n, 0);
+    std::vector<float> z(n + 11, 0);
+    InitializeLoop(x, 0.001);
+    InitializeLoop(y, 0.0003);
+    InitializeLoop(z, 0.0005);
+
     do {
         #pragma omp parallel for
         for (int k = 0; k < n; k++)
@@ -79,11 +84,11 @@ std::vector<float> Kernel1()
  */
 std::vector<float> Kernel2()
 {
-    int ipntp, ipnt, i, ii, n = 5000, j = 0;
+    int ipntp, ipnt, i, ii, n = 50000, j = 0;
     std::vector<float> x(n, 0);
-    std::vector<float> v(n, 0);
-    InitializeLoop(x, 0.001);
-    InitializeLoop(v, 0.0029);
+    std::vector<float> v(2*n, 0);
+    InitializeLoop(x, 0.0002);
+    InitializeLoop(v, 0.0007);
     do 
     {
         ii = n;
@@ -96,12 +101,12 @@ std::vector<float> Kernel2()
             i = ipntp ;
             /* #pragma nohazard */
             #pragma omp parallel for
-            for (int k = ipnt+1; k< ipntp ; k = k+2 ) 
+            for (int k = ipnt+1; k< ipntp ; k = k+2) 
             {
                 i++;
                 x[i] = x[k] - v[k] * x[k-1] - v[k+1] * x[k+1];
             }
-        } while ( ii>0 );
+        } while (ii > 0);
     } while( j++ < iter );
     return x;
 }
@@ -117,9 +122,12 @@ std::vector<float> Kernel2()
 double Kernel3()
 {
     double q = 0.0;
-    int i = 0, n = 10000;
-    std::vector<float> z(n, 0.2);
-    std::vector<float> x(n, 0.06);
+    int i = 0, n = 1000000;
+    std::vector<float> x(n, 0);
+    std::vector<float> z(n, 0);
+    InitializeLoop(x, 0.0001);
+    InitializeLoop(z, 0.0015);
+
     do 
     {
        #pragma omp parallel for reduction(+:q)
@@ -149,7 +157,7 @@ CDIR$ IVDEP
 */
 std::vector<float> Kernel4()
 {
-    int j = 0, n = 100000;
+    int j = 0, n = 1000000;
     int m = (1001 - 7)/2;
     std::vector<float> x(n, 0);
     std::vector<float> y(n, 0);
@@ -185,13 +193,14 @@ std::vector<float> Kernel4()
 
 std::vector<float> Kernel5()
 {
-    int j = 0, n = 1000;
+    int j = 0, n = 1000000;
     std::vector<float> x(n, 1.2);
     std::vector<float> y(n, 3.6);
     std::vector<float> z(n, 0.7);
     
     do {
-        // This loop can't be parallelize because the loop dependence
+        // This loop can't be parallelize because the loop dependence on x[i] and x[i-1]
+        #pragma omp parallel for
         for (int i = 1; i < n; i++ ) 
         {
            x[i] = z[i] * (y[i] - x[i-1]);
@@ -215,23 +224,116 @@ std::vector<float> Kernel5()
 // Haven't finished, to see weather that could be parallelized
 std::vector<float> Kernel6()
 {
-    int j = 0, n = 1000;
+    int j = 0, n = 2000;
     std::vector<float> w(n, 1);
-    InitializeLoop(w, 0.001);
-    std::vector<std::vector<float> > b(n, std::vector<float>(n, 0.067));
+    InitializeLoop(w, 0.0001);
+    std::vector<std::vector<float> > b(n, std::vector<float>(n, 0.0067));
+
     do {
         #pragma omp parallel for
         for (int i = 1; i < n; i++) 
         {
             w[i] = 0.0100;
+            auto const num_threads = omp_get_max_threads();
+            std::vector<float> sum(num_threads, 0.0);
+
             for (int k = 0; k < i; k++) 
             {
-                w[i] += b[k][i] * w[(i-k)-1];
+                // If not deal it with special logic it would have data race here
+                auto const t = omp_get_thread_num();
+                sum[ t ] += b[k][i] * w[(i-k)-1];
+                w[i] = std::accumulate(std::begin(sum), std::end(sum), 0);
             }
         } 
-    } while(j++ < iter);
+    } while(j++ < 10);
     return w;
 }
+
+/*
+*******************************************************************
+*   Kernel 7 -- equation of state fragment
+*******************************************************************
+*    DO 7 L= 1,Loop
+*    DO 7 k= 1,n
+*      X(k)=     U(k  ) + R*( Z(k  ) + R*Y(k  )) +
+*   .        T*( U(k+3) + R*( U(k+2) + R*U(k+1)) +
+*   .        T*( U(k+6) + Q*( U(k+5) + Q*U(k+4))))
+*  7 CONTINUE
+*/
+std::vector<float> Kernel7()
+{
+    int i = 0, n = 100000;
+    float q = 0.5, r = 0.2, t = 0.1;
+    std::vector<float> x(n, 0);
+    std::vector<float> y(n, 0);
+    std::vector<float> z(n, 0);
+    std::vector<float> u(n + 6, 0);
+    InitializeLoop(x, 0.001);
+    InitializeLoop(y, 0.0023);
+    InitializeLoop(z, 0.016);
+    InitializeLoop(u, 0.002);
+
+    do {
+        #pragma omp parallel for
+        for (int k = 0; k < n; k++) 
+        {
+           x[k] = u[k] + r * (z[k] + r * y[k]) +
+                t * (u[k+3] + r * (u[k+2] + r * u[k+1]) +
+                    t * (u[k+6] + q * (u[k+5] + q * u[k+4])));
+        }
+    } while(i++ < iter);
+    return x;
+}
+
+/*
+*******************************************************************
+*   Kernel 8 -- ADI integration
+*******************************************************************
+*    DO  8      L = 1,Loop
+*             nl1 = 1
+*             nl2 = 2
+*    DO  8     kx = 2,3
+CDIR$ IVDEP
+*    DO  8     ky = 2,n
+*          DU1(ky)=U1(kx,ky+1,nl1)  -  U1(kx,ky-1,nl1)
+*          DU2(ky)=U2(kx,ky+1,nl1)  -  U2(kx,ky-1,nl1)
+*          DU3(ky)=U3(kx,ky+1,nl1)  -  U3(kx,ky-1,nl1)
+*    U1(kx,ky,nl2)=U1(kx,ky,nl1) +A11*DU1(ky) +A12*DU2(ky) +A13*DU3(ky)
+*   .       + SIG*(U1(kx+1,ky,nl1) -2.*U1(kx,ky,nl1) +U1(kx-1,ky,nl1))
+*    U2(kx,ky,nl2)=U2(kx,ky,nl1) +A21*DU1(ky) +A22*DU2(ky) +A23*DU3(ky)
+*   .       + SIG*(U2(kx+1,ky,nl1) -2.*U2(kx,ky,nl1) +U2(kx-1,ky,nl1))
+*    U3(kx,ky,nl2)=U3(kx,ky,nl1) +A31*DU1(ky) +A32*DU2(ky) +A33*DU3(ky)
+*   .       + SIG*(U3(kx+1,ky,nl1) -2.*U3(kx,ky,nl1) +U3(kx-1,ky,nl1))
+*  8 CONTINUE
+*/
+// std::vector<float> Kernel8()
+// {
+//     int i = 0, n = 1000;
+//     float du1[n] = {0.1};
+//     int u1[2][1000][4] = {3, 4, 2, 3, 0, -3, 9, 11, 23, 12, 23, 
+//                  2, 13, 4, 56, 3, 5, 9, 3, 5, 5, 1, 4, 9};
+
+//     do {
+//     int nl1 = 0;
+//     int nl2 = 1;
+//     for (int kx = 1; kx < 3; kx++)
+//     {
+//        for (int ky = 1; ky < n; ky++) 
+//        {
+//             du1[ky] = u1[nl1][ky+1][kx] - u1[nl1][ky-1][kx];
+//             du2[ky] = u2[nl1][ky+1][kx] - u2[nl1][ky-1][kx];
+//             du3[ky] = u3[nl1][ky+1][kx] - u3[nl1][ky-1][kx];
+//             u1[nl2][ky][kx] = u1[nl1][ky][kx] + a11 * du1[ky] + a12 * du2[ky] + a13 * du3[ky] + sig *
+//                 (u1[nl1][ky][kx+1] - 2.0 * u1[nl1][ky][kx] + u1[nl1][ky][kx-1]);
+//             u2[nl2][ky][kx] = u2[nl1][ky][kx] + a21 * du1[ky] + a22 * du2[ky] + a23 * du3[ky] + sig *
+//                 (u2[nl1][ky][kx+1] - 2.0 * u2[nl1][ky][kx] + u2[nl1][ky][kx-1]);
+//             u3[nl2][ky][kx] = u3[nl1][ky][kx] + a31 * du1[ky] + a32 * du2[ky] + a33 * du3[ky] + sig *
+//                 (u3[nl1][ky][kx+1] - 2.0 * u3[nl1][ky][kx] + u3[nl1][ky][kx-1]);
+//        }
+//     }
+//    } while(i++ < iter);
+// }
+
 
 
 
@@ -241,15 +343,15 @@ int main(int argc, char *argv[])
     {
         // Choose which kernel loop that we want to run
         const int kernel_test = atoi( argv[ 1 ] );
-        std::cout << "The kernel we are testing is: " << kernel_test << std::endl;
+        std::cout << "The kernel we used for testing is: " << kernel_test << std::endl;
         // Set the number of cores that we want to use
         omp_set_num_threads( atoi( argv[ 2 ] ) );
         int threads_num = omp_get_max_threads();
-        printf("The used threads number is: %d \n", threads_num);
+        std::cout << "The threads number we used for testing is " << threads_num << std::endl;
 
-        // Create a variable sum to calculate the sum of each elements in the array 
+        // Create a variable sum to calculate the sum of each elements in the array in each kernel
         // In order to make sure the result is correct
-        double sum = 0;
+        long double sum = 0;
 
         // Start to recored the time
         auto const start_time = std::chrono::steady_clock::now();
@@ -264,7 +366,7 @@ int main(int argc, char *argv[])
         }
         case 2:
         {
-            auto k2 = Kernel1();
+            auto k2 = Kernel2();
             sum = CalculateSum(k2);
             break;
         } 
@@ -291,8 +393,16 @@ int main(int argc, char *argv[])
             sum = CalculateSum(k6);
             break;
         } 
+        case 7:
+        {
+            auto k7 = Kernel7();
+            sum = CalculateSum(k7);
+            break;
+        } 
         default:
             std::cout << "Invalid Input!" << std::endl;
+            std::cout << "The sencond parameter(kernel number) should be less than 24" << std::endl;
+            std::cout << "The third parameter(threads number) should be less than the threads you have" << std::endl;
         }      
         
         auto const end_time = std::chrono::steady_clock::now();
