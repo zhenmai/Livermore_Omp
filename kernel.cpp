@@ -35,6 +35,41 @@ void InitializeLoop(std::vector<T>& input, const float mul)
     }
 }
 
+template <typename T> 
+void Initialize2DLoop(std::vector<std::vector<T> >& input, const float mul)
+{
+    // Initialize the loop with different values
+    #pragma omp parallel for
+    for (unsigned int i = 0; i < input.size(); i++)
+    {
+        for (unsigned int j = 0; j < input[i].size(); j++)
+        {
+            input[i][j] = i * mul * j;
+        }
+    }
+}
+
+template <typename T> 
+void Print1DArray(const std::vector<T> input)
+{
+    for (unsigned int i = 0; i < input.size(); i++)
+    {
+        std::cout << input[i] << std::endl;
+    }
+}
+
+template <typename T> 
+void Print2DArray(const std::vector<std::vector<T> > input)
+{
+    for (unsigned int i = 0; i < input.size(); i++)
+    {
+        for (unsigned int j = 0; j < input[i].size(); j++)
+        {
+            std::cout << input[i][j] << std::endl;
+        }
+    }
+}
+
 /*
  *******************************************************************
  *   Kernel 1 -- hydro fragment
@@ -60,7 +95,7 @@ std::vector<float> Kernel1()
         {
             x[k] = q + y[k] * (r * z[k+10] + t * z[k+11]);
         }
-    } while( i++ < iter);
+    } while( ++i < iter);
     return x;
 }
 
@@ -107,7 +142,7 @@ std::vector<float> Kernel2()
                 x[i] = x[k] - v[k] * x[k-1] - v[k+1] * x[k+1];
             }
         } while (ii > 0);
-    } while( j++ < iter );
+    } while( ++j < iter );
     return x;
 }
 /*
@@ -135,7 +170,7 @@ double Kernel3()
        {
            q += z[k] * x[k];    
        }
-    } while(i++ < iter);
+    } while( ++i < iter );
     return q;
 }
 
@@ -161,7 +196,7 @@ std::vector<float> Kernel4()
     int m = (1001 - 7)/2;
     std::vector<float> x(n, 0);
     std::vector<float> y(n, 0);
-    InitializeLoop(x, 0.001);
+    InitializeLoop(x, 0.01);
     InitializeLoop(y, 0.0035);
 
     do {
@@ -178,7 +213,7 @@ std::vector<float> Kernel4()
             }
             x[k-1] = y[4] * temp;
         }
-    } while(j++ < iter);
+    } while( ++j < 1 );
     return x;
 }
 
@@ -193,11 +228,12 @@ std::vector<float> Kernel4()
 
 std::vector<float> Kernel5()
 {
-    int j = 0, n = 1000000;
-    std::vector<float> x(n, 1.2);
-    std::vector<float> y(n, 3.6);
-    std::vector<float> z(n, 0.7);
-    
+    int j = 0, n = 10000;
+    std::vector<float> x(n, 0);
+    std::vector<float> y(n, 0);
+    std::vector<float> z(n, 0);
+    InitializeLoop(y, 0.0000305);
+    InitializeLoop(z, 0.0000023);
     do {
         // This loop can't be parallelize because the loop dependence on x[i] and x[i-1]
         #pragma omp parallel for
@@ -205,7 +241,10 @@ std::vector<float> Kernel5()
         {
            x[i] = z[i] * (y[i] - x[i-1]);
         }
-    } while(j++ < iter);
+    } while(++j < 1);
+    // Uncomment the function Print1DArrray could print out each array element
+    // Compared to results with different threads we will find the differences
+    // Print1DArray(x); 
     return x;
 }
 
@@ -224,28 +263,26 @@ std::vector<float> Kernel5()
 // Haven't finished, to see weather that could be parallelized
 std::vector<float> Kernel6()
 {
-    int j = 0, n = 2000;
-    std::vector<float> w(n, 1);
-    InitializeLoop(w, 0.0001);
-    std::vector<std::vector<float> > b(n, std::vector<float>(n, 0.0067));
-
+    int j = 0, n = 100;
+    std::vector<float> w(n, 0);
+    InitializeLoop(w, 0.00000012);
+    std::vector<std::vector<float> > b(n, std::vector<float>(n, 0));
+    Initialize2DLoop(b, 0.000007);
     do {
+        // This loop can't be parallelize because the loop dependence on w[i] and w[(i-k)-1]
         #pragma omp parallel for
         for (int i = 1; i < n; i++) 
         {
             w[i] = 0.0100;
-            auto const num_threads = omp_get_max_threads();
-            std::vector<float> sum(num_threads, 0.0);
-
             for (int k = 0; k < i; k++) 
             {
-                // If not deal it with special logic it would have data race here
-                auto const t = omp_get_thread_num();
-                sum[ t ] += b[k][i] * w[(i-k)-1];
-                w[i] = std::accumulate(std::begin(sum), std::end(sum), 0);
+                w[i] += b[k][i] * w[(i-k)-1];
             }
         } 
-    } while(j++ < 10);
+    } while(++j < 1);
+    // Uncomment the function Print1DArrray could print out each array element
+    // Compared to results with different threads we will find the differences
+    // Print1DArray(w);
     return w;
 }
 
@@ -268,10 +305,10 @@ std::vector<float> Kernel7()
     std::vector<float> y(n, 0);
     std::vector<float> z(n, 0);
     std::vector<float> u(n + 6, 0);
-    InitializeLoop(x, 0.001);
-    InitializeLoop(y, 0.0023);
-    InitializeLoop(z, 0.016);
-    InitializeLoop(u, 0.002);
+    InitializeLoop(x, 0.0001);
+    InitializeLoop(y, 0.00023);
+    InitializeLoop(z, 0.0016);
+    InitializeLoop(u, 0.0021);
 
     do {
         #pragma omp parallel for
@@ -281,7 +318,7 @@ std::vector<float> Kernel7()
                 t * (u[k+3] + r * (u[k+2] + r * u[k+1]) +
                     t * (u[k+6] + q * (u[k+5] + q * u[k+4])));
         }
-    } while(i++ < iter);
+    } while( ++i < iter );
     return x;
 }
 
@@ -334,6 +371,39 @@ CDIR$ IVDEP
 //    } while(i++ < iter);
 // }
 
+/*
+*******************************************************************
+*   Kernel 9 -- integrate predictors
+*******************************************************************
+*    DO 9  L = 1,Loop
+*    DO 9  i = 1,n
+*    PX( 1,i)= DM28*PX(13,i) + DM27*PX(12,i) + DM26*PX(11,i) +
+*   .          DM25*PX(10,i) + DM24*PX( 9,i) + DM23*PX( 8,i) +
+*   .          DM22*PX( 7,i) +  C0*(PX( 5,i) +      PX( 6,i))+ PX( 3,i)
+*  9 CONTINUE
+*/
+void Kernel9()
+{
+    int j = 0, n = 10000;
+    float dm28 = 0.05, dm27 = 0.02, dm26 = 0.012, dm25 = 0.037, 
+        dm24 = 0.04, dm23 = 0.09, dm22 = 0.024, c0 = 0.224;
+    std::vector<std::vector<float> > px(n, std::vector<float>(12, 0));
+    Initialize2DLoop(px, 0.002);
+
+    do {
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) 
+        {
+            px[i][0] = dm28 * px[i][12] + dm27 * px[i][11] + dm26 * px[i][10] +
+                  dm25 * px[i][9] + dm24 * px[i][8] + dm23 * px[i][7] +
+                  dm22 * px[i][6] + c0 * (px[i][4] + px[i][5]) + px[i][2];
+        }
+    } while( ++j < iter);
+
+    // We could use Print2DArray(px) function to print the results of the array.
+    // Compared to see if the results is different with different number of threads.
+    Print2DArray(px);
+}
 
 
 
@@ -397,6 +467,17 @@ int main(int argc, char *argv[])
         {
             auto k7 = Kernel7();
             sum = CalculateSum(k7);
+            break;
+        } 
+        // case 8:
+        // {
+        //     auto k8 = Kernel8();
+        //     sum = CalculateSum(k8);
+        //     break;
+        // } 
+        case 9:
+        {
+            Kernel9();
             break;
         } 
         default:
