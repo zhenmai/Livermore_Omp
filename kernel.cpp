@@ -119,10 +119,10 @@ std::vector<float> Kernel1()
  */
 std::vector<float> Kernel2()
 {
-    int ipntp, ipnt, i, ii, n = 50000, j = 0;
-    std::vector<float> x(n, 0);
+    int ipntp, ipnt, i, ii, n = 10000, j = 0;
+    std::vector<float> x(2*n, 0);
     std::vector<float> v(2*n, 0);
-    InitializeLoop(x, 0.0002);
+    InitializeLoop(x, -0.002);
     InitializeLoop(v, 0.0007);
     do 
     {
@@ -134,15 +134,15 @@ std::vector<float> Kernel2()
             ipntp += ii;
             ii /= 2;
             i = ipntp ;
-            /* #pragma nohazard */
             #pragma omp parallel for
+            // This loop is not suitable for parallelization because the x[i] and x[k] are dependent 
             for (int k = ipnt+1; k< ipntp ; k = k+2) 
             {
                 i++;
                 x[i] = x[k] - v[k] * x[k-1] - v[k+1] * x[k+1];
             }
         } while (ii > 0);
-    } while( ++j < iter );
+    } while( ++j < 1 );
     return x;
 }
 /*
@@ -260,7 +260,6 @@ std::vector<float> Kernel5()
 *  6 CONTINUE
 */
 
-// Haven't finished, to see weather that could be parallelized
 std::vector<float> Kernel6()
 {
     int j = 0, n = 100;
@@ -269,7 +268,7 @@ std::vector<float> Kernel6()
     std::vector<std::vector<float> > b(n, std::vector<float>(n, 0));
     Initialize2DLoop(b, 0.000007);
     do {
-        // This loop can't be parallelize because the loop dependence on w[i] and w[(i-k)-1]
+        // This loop is not suitable for parallelization because the loop dependence on w[i] and w[(i-k)-1]
         #pragma omp parallel for
         for (int i = 1; i < n; i++) 
         {
@@ -399,12 +398,131 @@ void Kernel9()
                   dm22 * px[i][6] + c0 * (px[i][4] + px[i][5]) + px[i][2];
         }
     } while( ++j < iter);
+}
 
-    // We could use Print2DArray(px) function to print the results of the array.
-    // Compared to see if the results is different with different number of threads.
+/*
+*******************************************************************
+*   Kernel 10 -- difference predictors
+*******************************************************************
+*    DO 10  L= 1,Loop
+*    DO 10  i= 1,n
+*    AR      =      CX(5,i)
+*    BR      = AR - PX(5,i)
+*    PX(5,i) = AR
+*    CR      = BR - PX(6,i)
+*    PX(6,i) = BR
+*    AR      = CR - PX(7,i)
+*    PX(7,i) = CR
+*    BR      = AR - PX(8,i)
+*    PX(8,i) = AR
+*    CR      = BR - PX(9,i)
+*    PX(9,i) = BR
+*    AR      = CR - PX(10,i)
+*    PX(10,i)= CR
+*    BR      = AR - PX(11,i)
+*    PX(11,i)= AR
+*    CR      = BR - PX(12,i)
+*    PX(12,i)= BR
+*    PX(14,i)= CR - PX(13,i)
+*    PX(13,i)= CR
+* 10 CONTINUE
+*/
+void Kernel10()
+{
+    int j = 0, n = 1000;
+    float ar = 0.05, br = 0.02, cr = 0.012;
+    std::vector<std::vector<float> > cx(n, std::vector<float>(4, 1000));
+    std::vector<std::vector<float> > px(n, std::vector<float>(13, 0));
+    Initialize2DLoop(px, 0.02);
+
+    do {
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) 
+        {
+            float cx4 = cx[i][4];
+            float px4 = px[i][4];
+            float px5 = px[i][5];
+            float px6 = px[i][6];
+            float px7 = px[i][7];
+            float px8 = px[i][8];
+            float px9 = px[i][9];
+            float px10 = px[i][10];
+            float px11 = px[i][11];
+            float px12 = px[i][12];
+         
+            px[i][4] = cx4;
+            px[i][5] = cx4 - px4;
+            px[i][6] = cx4 - px4 - px5;
+            px[i][7] = cx4 - px4 - px5 - px6;
+            px[i][8] = cx4 - px4 - px5 - px6 - px7;
+            px[i][9] = cx4 - px4 - px5 - px6 - px7 - px8;
+            px[i][10] = cx4 - px4 - px5 - px6 - px7 - px8 - px9;
+            px[i][11] = cx4 - px4 - px5 - px6 - px7 - px8 - px9 - px10;
+            px[i][13] = cx4 - px4 - px5 - px6 - px7 - px8 - px9 - px10 - px11 - px12;
+            px[i][12] = cx4 - px4 - px5 - px6 - px7 - px8 - px9 - px10 - px11;
+        }
+    } while( ++j < 1 );
     Print2DArray(px);
 }
 
+/*
+*******************************************************************
+*   Kernel 11 -- first sum
+*******************************************************************
+*    DO 11 L = 1,Loop
+*        X(1)= Y(1)
+*    DO 11 k = 2,n
+* 11     X(k)= X(k-1) + Y(k)
+*/
+std::vector<float> Kernel11()
+{
+    int i = 0, n = 1000;
+    std::vector<float> x(n, 0);
+    std::vector<float> y(n, 0);
+    InitializeLoop(x, 0.0001);
+    InitializeLoop(y, 0.00023);
+    do 
+    {
+        x[0] = y[0];
+        // This loop can't be parallelize because the loop dependence on x[k] and x[k-1]
+        #pragma omp parallel for
+        for (int k = 1; k < n; k++) 
+        {
+           x[k] = x[k-1] + y[k];
+        }
+    } while(++i < 1);
+    // Uncomment the function Print1DArrray could print out each array element
+    // Compared to results with different threads we will find the differences
+    // Print1DArray(x); 
+    return x;
+}
+
+/*
+*******************************************************************
+*   Kernel 12 -- first difference
+*******************************************************************
+*    DO 12 L = 1,Loop
+*    DO 12 k = 1,n
+* 12     X(k)= Y(k+1) - Y(k)
+*/
+std::vector<float> Kernel12()
+{
+    int i = 0, n = 1000000;
+    std::vector<float> x(n, 0);
+    std::vector<float> y(n+1, 0);
+    InitializeLoop(x, 0.0001);
+    InitializeLoop(y, 0.00023);
+    do 
+    {
+        #pragma omp parallel for
+        for (int k = 1; k < n; k++) 
+        {
+           x[k] = y[k+1] - y[k];
+        }
+    } while(++i < iter);
+    // Print1DArray(x); 
+    return x;
+}
 
 
 int main(int argc, char *argv[])
@@ -478,6 +596,25 @@ int main(int argc, char *argv[])
         case 9:
         {
             Kernel9();
+            // Could use Print2DArray() to print the results of the array to compare.
+            break;
+        } 
+        case 10:
+        {
+            Kernel10();
+            // Could use Print2DArray() to print the results of the array to compare.
+            break;
+        }
+        case 11:
+        {
+            auto k11 = Kernel11();
+            sum = CalculateSum(k11);
+            break;
+        }
+        case 12:
+        {
+            auto k12 = Kernel12();
+            sum = CalculateSum(k12);
             break;
         } 
         default:
