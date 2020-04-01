@@ -298,7 +298,7 @@ std::vector<float> Kernel6()
 */
 std::vector<float> Kernel7()
 {
-    int i = 0, n = 100000;
+    int i = 0, n = 1000000;
     float q = 0.5, r = 0.2, t = 0.1;
     std::vector<float> x(n, 0);
     std::vector<float> y(n, 0);
@@ -383,11 +383,11 @@ CDIR$ IVDEP
 */
 void Kernel9()
 {
-    int j = 0, n = 10000;
+    int j = 0, n = 100000;
     float dm28 = 0.05, dm27 = 0.02, dm26 = 0.012, dm25 = 0.037, 
         dm24 = 0.04, dm23 = 0.09, dm22 = 0.024, c0 = 0.224;
     std::vector<std::vector<float> > px(n, std::vector<float>(12, 0));
-    Initialize2DLoop(px, 0.002);
+    Initialize2DLoop(px, 0.00002);
 
     do {
         #pragma omp parallel for
@@ -429,7 +429,7 @@ void Kernel9()
 */
 void Kernel10()
 {
-    int j = 0, n = 1000;
+    int j = 0, n = 100000;
     float ar = 0.05, br = 0.02, cr = 0.012;
     std::vector<std::vector<float> > cx(n, std::vector<float>(4, 1000));
     std::vector<std::vector<float> > px(n, std::vector<float>(13, 0));
@@ -462,7 +462,7 @@ void Kernel10()
             px[i][12] = cx4 - px4 - px5 - px6 - px7 - px8 - px9 - px10 - px11;
         }
     } while( ++j < 1 );
-    Print2DArray(px);
+    // Print2DArray(px);
 }
 
 /*
