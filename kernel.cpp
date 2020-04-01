@@ -29,7 +29,7 @@ void InitializeLoop(std::vector<T>& input, const float mul)
 {
     // Initialize the loop with different values
     #pragma omp parallel for
-    for (int i = 0; i < input.size(); i++)
+    for (unsigned i = 0; i < input.size(); i++)
     {
         input[i] = i * mul;
     }
