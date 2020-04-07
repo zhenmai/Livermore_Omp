@@ -341,33 +341,33 @@ CDIR$ IVDEP
 *   .       + SIG*(U3(kx+1,ky,nl1) -2.*U3(kx,ky,nl1) +U3(kx-1,ky,nl1))
 *  8 CONTINUE
 */
-// std::vector<float> Kernel8()
-// {
-//     int i = 0, n = 1000;
-//     float du1[n] = {0.1};
-//     int u1[2][1000][4] = {3, 4, 2, 3, 0, -3, 9, 11, 23, 12, 23, 
-//                  2, 13, 4, 56, 3, 5, 9, 3, 5, 5, 1, 4, 9};
+void Kernel8()
+{
+   //  int i = 0, n = 1000;
+   //  float du1[n] = {0.1};
+   //  int u1[2][1000][4] = {3, 4, 2, 3, 0, -3, 9, 11, 23, 12, 23, 
+   //               2, 13, 4, 56, 3, 5, 9, 3, 5, 5, 1, 4, 9};
 
-//     do {
-//     int nl1 = 0;
-//     int nl2 = 1;
-//     for (int kx = 1; kx < 3; kx++)
-//     {
-//        for (int ky = 1; ky < n; ky++) 
-//        {
-//             du1[ky] = u1[nl1][ky+1][kx] - u1[nl1][ky-1][kx];
-//             du2[ky] = u2[nl1][ky+1][kx] - u2[nl1][ky-1][kx];
-//             du3[ky] = u3[nl1][ky+1][kx] - u3[nl1][ky-1][kx];
-//             u1[nl2][ky][kx] = u1[nl1][ky][kx] + a11 * du1[ky] + a12 * du2[ky] + a13 * du3[ky] + sig *
-//                 (u1[nl1][ky][kx+1] - 2.0 * u1[nl1][ky][kx] + u1[nl1][ky][kx-1]);
-//             u2[nl2][ky][kx] = u2[nl1][ky][kx] + a21 * du1[ky] + a22 * du2[ky] + a23 * du3[ky] + sig *
-//                 (u2[nl1][ky][kx+1] - 2.0 * u2[nl1][ky][kx] + u2[nl1][ky][kx-1]);
-//             u3[nl2][ky][kx] = u3[nl1][ky][kx] + a31 * du1[ky] + a32 * du2[ky] + a33 * du3[ky] + sig *
-//                 (u3[nl1][ky][kx+1] - 2.0 * u3[nl1][ky][kx] + u3[nl1][ky][kx-1]);
-//        }
-//     }
-//    } while(i++ < iter);
-// }
+   //  do {
+   //  int nl1 = 0;
+   //  int nl2 = 1;
+   //  for (int kx = 1; kx < 3; kx++)
+   //  {
+   //     for (int ky = 1; ky < n; ky++) 
+   //     {
+   //          du1[ky] = u1[nl1][ky+1][kx] - u1[nl1][ky-1][kx];
+   //          du2[ky] = u2[nl1][ky+1][kx] - u2[nl1][ky-1][kx];
+   //          du3[ky] = u3[nl1][ky+1][kx] - u3[nl1][ky-1][kx];
+   //          u1[nl2][ky][kx] = u1[nl1][ky][kx] + a11 * du1[ky] + a12 * du2[ky] + a13 * du3[ky] + sig *
+   //              (u1[nl1][ky][kx+1] - 2.0 * u1[nl1][ky][kx] + u1[nl1][ky][kx-1]);
+   //          u2[nl2][ky][kx] = u2[nl1][ky][kx] + a21 * du1[ky] + a22 * du2[ky] + a23 * du3[ky] + sig *
+   //              (u2[nl1][ky][kx+1] - 2.0 * u2[nl1][ky][kx] + u2[nl1][ky][kx-1]);
+   //          u3[nl2][ky][kx] = u3[nl1][ky][kx] + a31 * du1[ky] + a32 * du2[ky] + a33 * du3[ky] + sig *
+   //              (u3[nl1][ky][kx+1] - 2.0 * u3[nl1][ky][kx] + u3[nl1][ky][kx-1]);
+   //     }
+   //  }
+   // } while(i++ < iter);
+}
 
 /*
 *******************************************************************
@@ -548,11 +548,30 @@ std::vector<float> Kernel12()
 * 13 CONTINUE
 */
 
-std::vector<float> Kernel13()
+void Kernel13()
 {
-#if 0
+#if 1
+    int i1, j1, i2, j2;
+    int i = 0, n = 10000;
+    std::vector<int> y(n+32, 1);
+    std::vector<int> z(n+32, 1);
+    std::vector<int> e(n+32, 1);
+    std::vector<int> f(n+32, 1);
+    InitializeLoop(y, 1);
+    InitializeLoop(z, 1);
+    InitializeLoop(e, 1);
+    InitializeLoop(f, 1);
+    std::vector<std::vector<int> > b(n, std::vector<int>(n, 1));
+    std::vector<std::vector<int> > c(n, std::vector<int>(n, 3));
+    std::vector<std::vector<int> > p(n, std::vector<int>(4, 0));
+    std::vector<std::vector<int> > h(n, std::vector<int>(n, 0));
+    Initialize2DLoop(p, 0.8);
+    Initialize2DLoop(h, 0.2);
+
     do {
-      for ( ip=0 ; ip<n ; ip++ ) {
+        #pragma omp parallel for private(i1,j1,j2,i2)
+        for (int ip = 0 ; ip < n; ip++) 
+        {
            i1 = p[ip][0];
            j1 = p[ip][1];
            i1 &= 64-1;
@@ -569,9 +588,13 @@ std::vector<float> Kernel13()
            p[ip][1] += z[j2+32];
            i2 += e[i2+32];
            j2 += f[j2+32];
+           #pragma atomic
            h[j2][i2] += 1.0;
-       }
-    } while( TEST( &ntest ) > 0 );
+        }
+    } while( i++ < iter );
+    // Uncomment the function Print1DArrray could print out each array element
+    // Compared to results with different threads we will find the differences
+    // Print2DArray(h); 
 #endif
 }
 
@@ -602,21 +625,22 @@ std::vector<float> Kernel13()
  *    RH(IR(k)+1)= RH(IR(k)+1) + RX(k)
  *14  CONTINUE
  */
-
-
-std::vector<float> Kernel14()
+void Kernel14()
 {
-#if 0
-   int i = 0, n = 1000;
-   std::vector<float> vx(n,0.0);
-   std::vector<float> xx(n,0.0);
-   std::vector<float> ix(n,0.0);
-   std::vector<float> xi(n,0.0);
-   std::vector<float> ex1(n,0.0);
-   std::vector<float> dex1(n,0.0);
-   std::vector<float> ir(n,0.0);
-   std::vector<float> rx(n,0.0);
-   std::vector<float> rh(2048,0.0); 
+#if 1
+   int i = 0, n = 100000, flx = 1;
+   std::vector<int> ir(n, 1.0);
+   std::vector<long> ix(n, 1.0);
+   std::vector<float> vx(n, 1.0);
+   std::vector<float> xx(n, 1.0);
+   std::vector<float> xi(n, 1.0);
+   std::vector<float> grd(n, 1.0);
+   std::vector<float> ex(n, 1.0);
+   std::vector<float> dex(n, 1.0);
+   std::vector<float> ex1(n, 1.0);
+   std::vector<float> dex1(n, 1.0);
+   std::vector<float> rx(n, 1.0);
+   std::vector<float> rh(n, 1.0); 
 
    do {
       #pragma omp parallel for
@@ -624,7 +648,7 @@ std::vector<float> Kernel14()
            vx[k] = 0.0;
            xx[k] = 0.0;
            ix[k] = (long) grd[k];
-           xi[k] = (REAL) ix[k];
+           xi[k] = (float) ix[k];
            ex1[k] = ex[ ix[k] - 1 ];
            dex1[k] = dex[ ix[k] - 1 ];
        }
@@ -639,11 +663,10 @@ std::vector<float> Kernel14()
        }
       #pragma omp parallel for
        for ( int k=0 ; k<n ; k++ ) {
-           rh[ ir[k]-1 ] += 1.0 - rx[k];
-           rh[ ir[k]   ] += rx[k];
+            rh[ ir[k]-1 ] += 1.0 - rx[k];
+            rh[ ir[k]   ] += rx[k];
        } 
    } while( i++ < iter);
-   return rh;
 #endif
 }
 
@@ -1180,6 +1203,7 @@ std::vector<std::vector<float>> Kernel21()
            }
        }
    }while(ii++ < iter);
+    // Print2DArray(px);
    return px;
 }
 
@@ -1373,12 +1397,11 @@ int main(int argc, char *argv[])
             sum = CalculateSum(k7);
             break;
         } 
-        // case 8:
-        // {
-        //     auto k8 = Kernel8();
-        //     sum = CalculateSum(k8);
-        //     break;
-        // } 
+        case 8:
+        {
+            Kernel8();
+            break;
+        } 
         case 9:
         {
             Kernel9();
@@ -1403,15 +1426,15 @@ int main(int argc, char *argv[])
             sum = CalculateSum(k12);
             break;
         } 
-        // case 13:
-        // {
-        //     auto k13 = Kernel13();
-        //     sum = CalculateSum(k13);
-        //     break;
-        // }
+        case 13:
+        {
+            Kernel13();
+            // Could use Print2DArray() to print the results of the array to compare.
+            break;
+        }
         case 14:
         {
-            auto k14 = Kernel14();
+            Kernel14();
             break;
         }
         case 15:
