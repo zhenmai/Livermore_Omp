@@ -343,31 +343,45 @@ CDIR$ IVDEP
 */
 void Kernel8()
 {
-   //  int i = 0, n = 1000;
-   //  float du1[n] = {0.1};
-   //  int u1[2][1000][4] = {3, 4, 2, 3, 0, -3, 9, 11, 23, 12, 23, 
-   //               2, 13, 4, 56, 3, 5, 9, 3, 5, 5, 1, 4, 9};
-
-   //  do {
-   //  int nl1 = 0;
-   //  int nl2 = 1;
-   //  for (int kx = 1; kx < 3; kx++)
-   //  {
-   //     for (int ky = 1; ky < n; ky++) 
-   //     {
-   //          du1[ky] = u1[nl1][ky+1][kx] - u1[nl1][ky-1][kx];
-   //          du2[ky] = u2[nl1][ky+1][kx] - u2[nl1][ky-1][kx];
-   //          du3[ky] = u3[nl1][ky+1][kx] - u3[nl1][ky-1][kx];
-   //          u1[nl2][ky][kx] = u1[nl1][ky][kx] + a11 * du1[ky] + a12 * du2[ky] + a13 * du3[ky] + sig *
-   //              (u1[nl1][ky][kx+1] - 2.0 * u1[nl1][ky][kx] + u1[nl1][ky][kx-1]);
-   //          u2[nl2][ky][kx] = u2[nl1][ky][kx] + a21 * du1[ky] + a22 * du2[ky] + a23 * du3[ky] + sig *
-   //              (u2[nl1][ky][kx+1] - 2.0 * u2[nl1][ky][kx] + u2[nl1][ky][kx-1]);
-   //          u3[nl2][ky][kx] = u3[nl1][ky][kx] + a31 * du1[ky] + a32 * du2[ky] + a33 * du3[ky] + sig *
-   //              (u3[nl1][ky][kx+1] - 2.0 * u3[nl1][ky][kx] + u3[nl1][ky][kx-1]);
-   //     }
-   //  }
-   // } while(i++ < iter);
+  int j = 0, n = 100000;
+  std::vector<std::vector<std::vector<float>>> u1(2,std::vector<std::vector<float>>
+     (n+1, std::vector<float>(4,1.25))); 
+  std::vector<std::vector<std::vector<float>>> u2(2,std::vector<std::vector<float>>
+     (n+1, std::vector<float>(4,0.75))); 
+  std::vector<std::vector<std::vector<float>>> u3(2,std::vector<std::vector<float>>
+     (n+1, std::vector<float>(4,1.05)));
+  std::vector<float> du1(n);
+  std::vector<float> du2(n);
+  std::vector<float> du3(n);
+  int nl1 = 0, nl2 = 1;
+  float a11 = 1.1, a12 = 1.2, a13 = 1.3, a21 = 2.1, a22 = 2.2, a23 = 2.3, a31 = 3.1;
+  float a32 = 3.2, a33 = 3.3, sig = 1.0;
+  do { 
+       for ( int kx=1 ; kx<3 ; kx++ ){
+/* #pragma nohazard */
+           #pragma omp parallel for
+           for ( int ky=1 ; ky<n ; ky++ ) {
+              du1[ky] = u1[nl1][ky+1][kx] - u1[nl1][ky-1][kx];
+              du2[ky] = u2[nl1][ky+1][kx] - u2[nl1][ky-1][kx];
+              du3[ky] = u3[nl1][ky+1][kx] - u3[nl1][ky-1][kx];
+              u1[nl2][ky][kx]=
+                 u1[nl1][ky][kx]+a11*du1[ky]+a12*du2[ky]+a13*du3[ky] + sig*
+                    (u1[nl1][ky][kx+1]-2.0*u1[nl1][ky][kx]+u1[nl1][ky][kx-1]);
+              u2[nl2][ky][kx]=
+                 u2[nl1][ky][kx]+a21*du1[ky]+a22*du2[ky]+a23*du3[ky] + sig*
+                    (u2[nl1][ky][kx+1]-2.0*u2[nl1][ky][kx]+u2[nl1][ky][kx-1]);
+              u3[nl2][ky][kx]=
+                 u3[nl1][ky][kx]+a31*du1[ky]+a32*du2[ky]+a33*du3[ky] + sig*
+                    (u3[nl1][ky][kx+1]-2.0*u3[nl1][ky][kx]+u3[nl1][ky][kx-1]);
+           }
+       }
+  } while( j++ < iter);
+   //  //tests
+   // print2dVector(u1[1]);
+   // print2dVector(u2[1]);
+   // print2dVector(u3[1]);
 }
+
 
 /*
 *******************************************************************
@@ -819,7 +833,7 @@ std::vector<std::vector<float>> Kernel15()
  *480 CONTINUE
  *485 CONTINUE
  */
-int Kernel16()
+void Kernel16()
 {
 #if 0
    int i = 0, n = 10000;
@@ -893,7 +907,6 @@ int Kernel16()
       }
    } while( i++ < iter );
 #endif
-   return 0;
 }
 
 
@@ -1444,7 +1457,7 @@ int main(int argc, char *argv[])
         }
         case 16:
         {
-            auto k16 = Kernel16();
+            Kernel16();
             break;
         }
         case 17:
