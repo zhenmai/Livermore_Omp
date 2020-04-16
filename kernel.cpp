@@ -582,8 +582,8 @@ void Kernel13()
            p[ip][1] += p[ip][3];
            i2 = p[ip][0];
            j2 = p[ip][1];
-           i2 = ( i2 & 64-1 ) - 1 ;
-           j2 = ( j2 & 64-1 ) - 1 ;
+           i2 = ( i2 & (64-1) ) - 1 ;
+           j2 = ( j2 & (64-1) ) - 1 ;
            p[ip][0] += y[i2+32];
            p[ip][1] += z[j2+32];
            i2 += e[i2+32];
@@ -658,7 +658,7 @@ void Kernel14()
            xx[k] = xx[k] + vx[k]  + flx;
            ir[k] = xx[k];
            rx[k] = xx[k] - ir[k];
-           ir[k] = ( ir[k] & 2048-1 ) + 1;
+           ir[k] = ( ir[k] & (2048-1) ) + 1;
            xx[k] = rx[k] + ir[k];
        }
       #pragma omp parallel for
@@ -821,13 +821,13 @@ std::vector<std::vector<float>> Kernel15()
  */
 int Kernel16()
 {
+#if 0
    int i = 0, n = 10000;
    int ii = n / 3;
    int lb = ii + ii;
    int k3 = 0, k2 = 0;
 
 // change the 0 to 1 could see the code but it is not suitable for parallelism
-#if 0
    do {
       int i1 = 1, m = 1;
       bool finish = false;
