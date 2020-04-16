@@ -602,7 +602,7 @@ void Kernel13()
            p[ip][1] += z[j2+32];
            i2 += e[i2+32];
            j2 += f[j2+32];
-           #pragma atomic
+           #pragma omp atomic
            h[j2][i2] += 1.0;
         }
     } while( i++ < iter );
