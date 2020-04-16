@@ -1075,28 +1075,28 @@ std::vector<std::vector<float>> Kernel18()
  *193        CONTINUE
  *194 CONTINUE
  */
-std::vector<float> Kernel19()
+void Kernel19()
 {
     int ii = 0, n = 100000;
-    int kb5i = 2;
-    float stb5 = 1.2;
-    std::vector<float> b5(n+2, 0);
+    int kb5i = n;
+    float stb5 = 0.0015;
+    std::vector<float> b5(n+kb5i, 0);
     std::vector<float> sa(n, 0);
     std::vector<float> sb(n, 0);
-    InitializeLoop(b5, 0.001);
-    InitializeLoop(sa, 0.0023);
-    InitializeLoop(sb, 0.016);
+    InitializeLoop(b5, 0.0001);
+    InitializeLoop(sa, 0.00023);
+    InitializeLoop(sb, 0.00016);
     do{
       //The following two parallel optimizations won't work
       //as we keep using stb5 calculated from previous iteration
       //so can't process them simultaneously.
         #pragma omp parallel for
-        for ( int k=0 ; k<n ; k++ ) {
+        for (int k = 0; k < n; k++) {
            b5[k+kb5i] = sa[k] + stb5 * sb[k];
            stb5 = b5[k+kb5i] - stb5;
         }
        #pragma omp parallel for
-        for ( int i=1 ; i<=n ; i++ ) {
+        for (int i = 1; i <= n; i++) {
            int k = n - i ;
            b5[k+kb5i] = sa[k] + stb5 * sb[k];
            stb5 = b5[k+kb5i] - stb5;
@@ -1104,8 +1104,8 @@ std::vector<float> Kernel19()
     } while (ii++ < 1);
     // Uncomment the function Print1DArrray could print out each array element
     // Compared to results with different threads we will find the differences
-    Print1DArray(b5);
-    return b5;
+    // Print1DArray(b5);
+    return;
 }
 
 
@@ -1461,8 +1461,7 @@ int main(int argc, char *argv[])
         }
         case 19:
         {
-           auto k19 = Kernel19();
-           sum = CalculateSum(k19);
+           Kernel19();
            break;
         }
         case 20:
